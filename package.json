@@ -1,0 +1,25 @@
+{
+  "name": "isomer-route",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "author": "Darragh Mc Kay @darraghmckay",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "isomer": "^0.2.6"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.9.0",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/preset-env": "^7.9.5",
+    "babel-loader": "^8.1.0",
+    "eslint-plugin-prettier": "^3.1.1",
+    "prettier": "1.19.1",
+    "webpack": "^4.42.1",
+    "webpack-cli": "^3.3.11"
+  },
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch"
+  }
+}
