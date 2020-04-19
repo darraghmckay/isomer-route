@@ -1,14 +1,15 @@
-import Isomer, { Color, Shape, Point } from 'isomer';
+import { TopologicalSort } from 'topological-sort';
+import Isomer, { Point } from 'isomer';
 import DIR from './directions';
 import DirectedShape from './DirectedShape';
+import { blue } from './colors';
 import {
+  doBoundingBoxesOverlap,
   drawGrid,
   isEquivalent,
-  isShapeInFront,
-  sortByOverlapping,
+  isBoxInFront,
+  getBoundingBoxFromShape,
 } from './utils';
-
-const blue = new Color(59, 188, 188);
 
 class IsomerRoute {
   constructor(canvas, origin = Point(0, 0, 0), color = blue) {
@@ -24,10 +25,12 @@ class IsomerRoute {
     this.rotation = 0;
     this.depth = 1;
     this.rotationQuadrant = 0;
+    this.delay = 0;
+    this.topology = null;
     return this;
   }
 
-  getEquivalentPoint = (point) => {
+  getEquivalentPoint = point => {
     const equivalentPoints = [];
     for (let i = 0; i < this.shapes.length; i++) {
       const shape = this.shapes[i];
@@ -59,7 +62,10 @@ class IsomerRoute {
 
       if (direction === DIR.UP) {
         const p = Point(origin.x, origin.y, origin.z + dz);
-        if (isEquivalent(point, p, this.rotationQuadrant)) {
+        if (
+          isEquivalent(point, p, this.rotationQuadrant) &&
+          !isEquivalent(point, Point(p.x, p.y, p.z + 1))
+        ) {
           equivalentPoints.push(p);
         }
       }
@@ -81,13 +87,18 @@ class IsomerRoute {
     );
   };
 
+  setDelay = delay => {
+    this.delay = delay;
+    return this;
+  };
+
   updateOrigin = (dx = 0, dy = 0, dz = 0) => {
     return this.setOrigin(
       Point(this.origin.x + dx, this.origin.y + dy, this.origin.z + dz),
     );
   };
 
-  setOrigin = (origin) => {
+  setOrigin = origin => {
     this.origin = origin;
     return this;
   };
@@ -98,21 +109,32 @@ class IsomerRoute {
 
     if (dir === DIR.DOWN) {
       this.updateOrigin(0, 0, -1 * height + 1);
-      const shape = new DirectedShape(
-        this.origin,
-        dx,
-        dy,
-        height - 1 + this.depth,
-        dir,
-        color,
-      );
-      this.shapes.push(shape);
+      for (let d = 0; d < height; d++) {
+        const shape = new DirectedShape(
+          Point(this.origin.x, this.origin.y, this.origin.z + d),
+          dx,
+          dy,
+          1 * this.depth,
+          dir,
+          color,
+        );
+        this.shapes.push(shape);
+      }
       this.updateOrigin(0, 0, -1);
       return this;
     }
 
-    const shape = new DirectedShape(this.origin, dx, dy, height, dir, color);
-    this.shapes.push(shape);
+    for (let d = 0; d < height; d++) {
+      const shape = new DirectedShape(
+        Point(this.origin.x, this.origin.y, this.origin.z + d),
+        dx,
+        dy,
+        1 * this.depth,
+        dir,
+        color,
+      );
+      this.shapes.push(shape);
+    }
 
     return this.updateOrigin(0, 0, height);
   };
@@ -129,22 +151,23 @@ class IsomerRoute {
         0,
       );
 
-      const shape = new DirectedShape(
-        Point(
-          this.origin.x +
-            (this.polarity < 1 && this.direction === DIR.X ? 0 : 0),
-          this.origin.y +
-            (this.polarity < 1 && this.direction === DIR.Y ? 0 : 0),
-          this.origin.z,
-        ),
-        dx + (dir === DIR.X ? 1 : 0),
-        dy + (dir === DIR.Y ? 1 : 0),
-        height,
-        dir,
-        color,
-      );
+      for (let d = 0; d < Math.abs(length) + 1; d += 1) {
+        const shape = new DirectedShape(
+          Point(
+            this.origin.x + (dir === DIR.X ? d : 0),
+            this.origin.y + (dir === DIR.Y ? d : 0),
+            this.origin.z,
+          ),
+          1,
+          1,
+          height,
+          dir,
+          color,
+        );
 
-      this.shapes.push(shape);
+        this.shapes.push(shape);
+      }
+
       this.polarity = -1;
       this.direction = dir;
 
@@ -158,9 +181,22 @@ class IsomerRoute {
       dir === DIR.X && this.direction !== DIR.X ? 1 : 0,
       dir === DIR.Y && this.direction !== DIR.Y ? 1 : 0,
     );
-    const shape = new DirectedShape(this.origin, dx, dy, height, dir, color);
+    for (let d = 0; d < Math.abs(length); d += 1) {
+      const shape = new DirectedShape(
+        Point(
+          this.origin.x + (dir === DIR.X ? d : 0),
+          this.origin.y + (dir === DIR.Y ? d : 0),
+          this.origin.z,
+        ),
+        1,
+        1,
+        height,
+        dir,
+        color,
+      );
 
-    this.shapes.push(shape);
+      this.shapes.push(shape);
+    }
 
     return this.updateOrigin(dir === DIR.X ? dx : 0, dir === DIR.Y ? dy : 0, 0);
   };
@@ -230,25 +266,20 @@ class IsomerRoute {
     return this;
   }
 
-  addShape = (shape) => {
+  addShape = shape => {
     this.shapes.push(shape);
     return this;
   };
 
-  addShapes = (shapes) => {
+  addShapes = shapes => {
     this.shapes = this.shapes.concat(shapes);
     return this;
   };
 
-  removeShapeById = (shapeId) => {
-    this.shapes = this.shapes.filter((shape) => shape.id !== shapeId);
+  removeShapeById = shapeId => {
+    this.shapes = this.shapes.filter(shape => shape.id !== shapeId);
     return this;
   };
-
-  // getShapeObj = (shape) => {
-  //   shape = shape.
-  //   return shape;
-  // };
 
   drawGrid = (gridSize, drawNegative = false) => {
     this.gridSize = gridSize;
@@ -256,24 +287,77 @@ class IsomerRoute {
     return this;
   };
 
-  draw = () => {
-    // const orderedPaths = this.shapes
-    //   .map(this.getShapeObj)
-    //   .reduce((pathsAc, shape) => [...pathsAc, ...shape.paths], [])
-    //   .sort((pathA, pathB) => pathB.depth() - pathA.depth());
-
-    console.log(this.shapes);
-    const orderedShapes = this.shapes.sort(sortByOverlapping);
-
-    orderedShapes.forEach((shape) => {
-      this.iso.add(
-        shape.rotateZ(
-          Point(this.gridSize / 2, this.gridSize / 2, 0),
-          this.rotation,
-        ),
-        shape.color || blue,
-      );
+  buildNodes = rotatedShapes => {
+    const nodes = new Map();
+    rotatedShapes.forEach(shape => {
+      nodes.set(shape.getId(), shape);
     });
+
+    this.topology = new TopologicalSort(nodes);
+    return this;
+  };
+
+  addEdge = (shapeA, shapeB) => {
+    const nodeA = this.topology.nodes.get(shapeA.getId());
+    if (!nodeA.children.has(shapeB.getId())) {
+      this.topology.addEdge(shapeA.getId(), shapeB.getId());
+    }
+    return this;
+  };
+
+  buildEdges = rotatedShapes => {
+    rotatedShapes.forEach((shapeA, index) => {
+      rotatedShapes.slice(index + 1).forEach(shapeB => {
+        const boxA = getBoundingBoxFromShape(shapeA);
+        const boxB = getBoundingBoxFromShape(shapeB);
+        if (
+          shapeA.getId() !== shapeB.getId() &&
+          doBoundingBoxesOverlap(boxA, boxB)
+        ) {
+          if (isBoxInFront(boxA, boxB)) {
+            this.addEdge(shapeA, shapeB);
+          } else {
+            this.addEdge(shapeB, shapeA);
+          }
+        }
+      });
+    });
+    return this;
+  };
+
+  delayDraw = (shape, delay = 0) => {
+    if (delay) {
+      setTimeout(() => {
+        this.iso.add(shape.shape, shape.color || blue);
+      }, delay);
+    } else {
+      this.iso.add(shape.shape, shape.color || blue);
+    }
+    return this;
+  };
+
+  draw = () => {
+    this.topology = null;
+    this.nodes = new Map();
+    const rotatedShapes = this.shapes.map(shape =>
+      shape.rotateZ(
+        Point(this.gridSize / 2, this.gridSize / 2, 0),
+        this.rotation,
+      ),
+    );
+
+    this.buildNodes(rotatedShapes);
+    this.buildEdges(rotatedShapes);
+    let sortedTopology = null;
+    try {
+      sortedTopology = this.topology.sort();
+      [...sortedTopology.keys()].reverse().forEach((shapeId, index) => {
+        const shape = sortedTopology.get(shapeId).node;
+        this.delayDraw(shape, index * this.delay);
+      });
+    } catch (e) {
+      console.log(e, console.log(this.topology));
+    }
 
     return this;
   };

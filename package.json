@@ -6,7 +6,8 @@
   "license": "MIT",
   "private": false,
   "dependencies": {
-    "isomer": "^0.2.6"
+    "isomer": "^0.2.6",
+    "topological-sort": "^0.3.0"
   },
   "devDependencies": {
     "@babel/core": "^7.9.0",

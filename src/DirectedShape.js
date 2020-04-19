@@ -1,34 +1,55 @@
-import { Color, Shape } from 'isomer';
+import { Point, Shape } from 'isomer';
+import { blue } from './colors';
 
-const blue = new Color(59, 188, 188);
-
-class DirectedShape extends Shape.Prism {
+class DirectedShape {
   constructor(origin, dx, dy, dz, direction, color = blue) {
-    super(origin, dx, dy, dz);
     this.dx = dx;
     this.dy = dy;
     this.dz = dz;
-    this.origin = origin;
+    this.origin = Point(
+      Math.round(origin.x * 1000) / 1000,
+      Math.round(origin.y * 1000) / 1000,
+      Math.round(origin.z * 1000) / 1000,
+    );
     this.color = color;
     this.direction = direction;
+    this.shape = new Shape.Prism(this.origin, this.dx, this.dy, this.dz);
+  }
+
+  getId() {
+    return `${this.origin.x},${this.origin.y},${this.origin.z}--${this.dx}x${this.dy}x${this.dz}`;
+  }
+
+  clone() {
+    return new DirectedShape(
+      this.origin,
+      this.dx,
+      this.dy,
+      this.dz,
+      this.direction,
+      this.color,
+    );
   }
 
   rotateX() {
-    const shape = new Shape(this.dx, this.dy, this.dz).rotateX(arguments);
-    this.paths = shape.paths;
-    return this;
+    const shape = this.shape.rotateX(...arguments);
+    const directedShape = this.clone();
+    directedShape.shape = shape;
+    return directedShape;
   }
 
   rotateY() {
-    const shape = new Shape(this.dx, this.dy, this.dz).rotateY(arguments);
-    this.paths = shape.paths;
-    return this;
+    const shape = this.shape.rotateY(...arguments);
+    const directedShape = this.clone();
+    directedShape.shape = shape;
+    return directedShape;
   }
 
   rotateZ() {
-    const shape = new Shape(this.dx, this.dy, this.dz).rotateZ(arguments);
-    this.paths = shape.paths;
-    return this;
+    const shape = this.shape.rotateZ(...arguments);
+    const directedShape = this.clone();
+    directedShape.shape = shape;
+    return directedShape;
   }
 }
 
