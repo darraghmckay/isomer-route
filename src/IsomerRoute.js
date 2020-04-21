@@ -1,7 +1,8 @@
 import { TopologicalSort } from 'topological-sort';
-import Isomer, { Point } from 'isomer';
+import Isomer, { Path, Point } from 'isomer';
 import DIR from './directions';
 import DirectedShape from './DirectedShape';
+import DirectedPath from './DirectedPath';
 import { blue } from './colors';
 import {
   doBoundingBoxesOverlap,
@@ -36,20 +37,16 @@ class IsomerRoute {
       const shape = this.shapes[i];
       const { origin, dz, direction } = shape;
       if (direction === DIR.X) {
-        for (let dx = 0; dx < shape.dx; dx++) {
-          const p = Point(origin.x + dx, origin.y, origin.z + dz);
-          if (isEquivalent(point, p, this.rotationQuadrant)) {
-            equivalentPoints.push(p);
-          }
+        const p = Point(origin.x + 1, origin.y, origin.z + dz);
+        if (isEquivalent(point, p, this.rotationQuadrant)) {
+          equivalentPoints.push(p);
         }
       }
 
       if (direction === DIR.Y) {
-        for (let dy = 0; dy < shape.dy; dy++) {
-          const p = Point(origin.x, origin.y + dy, origin.z + dz);
-          if (isEquivalent(point, p, this.rotationQuadrant)) {
-            equivalentPoints.push(p);
-          }
+        const p = Point(origin.x, origin.y + 1, origin.z + dz);
+        if (isEquivalent(point, p, this.rotationQuadrant)) {
+          equivalentPoints.push(p);
         }
       }
 
@@ -87,6 +84,11 @@ class IsomerRoute {
     );
   };
 
+  setColor = color => {
+    this.color = color;
+    return this;
+  };
+
   setDelay = delay => {
     this.delay = delay;
     return this;
@@ -103,7 +105,33 @@ class IsomerRoute {
     return this;
   };
 
-  addColumn = (height, dir = DIR.UP, color = blue) => {
+  setGridSize = gridSize => {
+    this.gridSize = gridSize;
+    return this;
+  };
+
+  addExtrusion = (pointsFromOrigin, depth, color, transformation) => {
+    const pathPoints = pointsFromOrigin.map(
+      p =>
+        new Point(
+          this.origin.x + p.x,
+          this.origin.y + p.y,
+          this.origin.z + p.z,
+        ),
+    );
+
+    const shape = new DirectedPath(
+      this.origin,
+      new Path(pathPoints),
+      depth,
+      color,
+      transformation,
+    );
+    this.shapes.push(shape);
+    return this;
+  };
+
+  addColumn = (height, dir = DIR.UP, color, transformation) => {
     const dx = 1;
     const dy = 1;
 
@@ -117,6 +145,7 @@ class IsomerRoute {
           1 * this.depth,
           dir,
           color,
+          transformation,
         );
         this.shapes.push(shape);
       }
@@ -132,6 +161,7 @@ class IsomerRoute {
         1 * this.depth,
         dir,
         color,
+        transformation,
       );
       this.shapes.push(shape);
     }
@@ -139,7 +169,7 @@ class IsomerRoute {
     return this.updateOrigin(0, 0, height);
   };
 
-  addPath = (length, dir = DIR.X, color) => {
+  addPath = (length, dir = DIR.X, color, transformation) => {
     const dx = dir === DIR.X ? Math.abs(length) : 1;
     const dy = dir === DIR.Y ? Math.abs(length) : 1;
     const height = 1 * this.depth;
@@ -163,6 +193,7 @@ class IsomerRoute {
           height,
           dir,
           color,
+          transformation,
         );
 
         this.shapes.push(shape);
@@ -193,6 +224,7 @@ class IsomerRoute {
         height,
         dir,
         color,
+        transformation,
       );
 
       this.shapes.push(shape);
@@ -276,13 +308,8 @@ class IsomerRoute {
     return this;
   };
 
-  removeShapeById = shapeId => {
-    this.shapes = this.shapes.filter(shape => shape.id !== shapeId);
-    return this;
-  };
-
   drawGrid = (gridSize, drawNegative = false) => {
-    this.gridSize = gridSize;
+    this.gridSize = gridSize || this.gridSize;
     drawGrid(this.iso, this.rotation, this.gridSize, drawNegative);
     return this;
   };
@@ -340,10 +367,9 @@ class IsomerRoute {
     this.topology = null;
     this.nodes = new Map();
     const rotatedShapes = this.shapes.map(shape =>
-      shape.rotateZ(
-        Point(this.gridSize / 2, this.gridSize / 2, 0),
-        this.rotation,
-      ),
+      shape
+        .transformation(shape)
+        .rotateZ(Point(this.gridSize / 2, this.gridSize / 2, 0), this.rotation),
     );
 
     this.buildNodes(rotatedShapes);

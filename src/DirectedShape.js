@@ -1,8 +1,10 @@
 import { Point, Shape } from 'isomer';
 import { blue } from './colors';
 
+const noOp = shape => shape;
+
 class DirectedShape {
-  constructor(origin, dx, dy, dz, direction, color = blue) {
+  constructor(origin, dx, dy, dz, direction, color = blue, transformation) {
     this.dx = dx;
     this.dy = dy;
     this.dz = dz;
@@ -14,6 +16,7 @@ class DirectedShape {
     this.color = color;
     this.direction = direction;
     this.shape = new Shape.Prism(this.origin, this.dx, this.dy, this.dz);
+    this.transformation = transformation || noOp;
   }
 
   getId() {
@@ -28,6 +31,7 @@ class DirectedShape {
       this.dz,
       this.direction,
       this.color,
+      this.transformation,
     );
   }
 
