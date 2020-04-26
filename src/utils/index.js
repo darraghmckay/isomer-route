@@ -70,7 +70,7 @@ export const spaceToIso = spacePos => {
   };
 };
 
-export const getBoundingBoxFromShape = shape => {
+export const getBoundingBoxFromBlock = block => {
   const bbox = {
     xmin: Infinity,
     xmax: -Infinity,
@@ -82,7 +82,7 @@ export const getBoundingBoxFromShape = shape => {
     hmax: -Infinity,
   };
 
-  shape.shape.paths.forEach(path => {
+  block.shape.paths.forEach(path => {
     path.points.forEach(point => {
       const isoPoint = spaceToIso(point);
       bbox.xmin = Math.min(bbox.xmin, Math.round(isoPoint.x * 1000) / 1000);
@@ -116,8 +116,8 @@ export const getMaxBoxDepth = box => box.xmax + box.ymax - 4 * box.zmax;
 export const isBoxInFront = (box1, box2) =>
   getMaxBoxDepth(box1) <= getMaxBoxDepth(box2);
 
-export const doShapesOverlap = (shape1, shape2) => {
-  const box1 = getBoundingBoxFromShape(shape1);
-  const box2 = getBoundingBoxFromShape(shape2);
+export const doBlocksOverlap = (block1, block2) => {
+  const box1 = getBoundingBoxFromBlock(block1);
+  const box2 = getBoundingBoxFromBlock(block2);
   return doBoundingBoxesOverlap(box1, box2);
 };

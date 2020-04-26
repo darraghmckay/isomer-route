@@ -1,16 +1,19 @@
 import { TopologicalSort } from 'topological-sort';
-import Isomer, { Path, Point } from 'isomer';
+import Isomer, { Point } from 'isomer';
 import DIR from './directions';
-import DirectedShape from './DirectedShape';
-import DirectedPath from './DirectedPath';
 import { blue } from './colors';
 import {
   doBoundingBoxesOverlap,
   drawGrid,
   isEquivalent,
   isBoxInFront,
-  getBoundingBoxFromShape,
+  getBoundingBoxFromBlock,
 } from './utils';
+import Track from './Track';
+import Column from './Column';
+import Stairs from './Stairs';
+
+const identity = block => block;
 
 class IsomerRoute {
   constructor(canvas, origin = Point(0, 0, 0), color = blue) {
@@ -19,12 +22,10 @@ class IsomerRoute {
     this.iso.colorDifference = 0.35;
     this.origin = origin;
     this.gridSize = 16;
-    this.shapes = [];
+    this.blockGroups = [];
     this.direction = null;
-    this.polarity = 1;
     this.color = color;
     this.rotation = 0;
-    this.depth = 1;
     this.rotationQuadrant = 0;
     this.delay = 0;
     this.topology = null;
@@ -33,8 +34,8 @@ class IsomerRoute {
 
   getEquivalentPoint = point => {
     const equivalentPoints = [];
-    for (let i = 0; i < this.shapes.length; i++) {
-      const shape = this.shapes[i];
+    for (let i = 0; i < this.blockGroups.length; i++) {
+      const shape = this.blockGroups[i];
       const { origin, dz, direction } = shape;
       if (direction === DIR.X) {
         const p = Point(origin.x + 1, origin.y, origin.z + dz);
@@ -110,162 +111,75 @@ class IsomerRoute {
     return this;
   };
 
-  addExtrusion = (pointsFromOrigin, depth, color, transformation) => {
-    const pathPoints = pointsFromOrigin.map(
-      p =>
-        new Point(
-          this.origin.x + p.x,
-          this.origin.y + p.y,
-          this.origin.z + p.z,
-        ),
-    );
-
-    const shape = new DirectedPath(
-      this.origin,
-      new Path(pathPoints),
-      depth,
-      color,
-      transformation,
-    );
-    this.shapes.push(shape);
-    return this;
-  };
-
-  addColumn = (height, dir = DIR.UP, color, transformation) => {
-    const dx = 1;
-    const dy = 1;
-
+  addColumn = (height, dir = DIR.UP, transformation = identity) => {
     if (dir === DIR.DOWN) {
-      this.updateOrigin(0, 0, -1 * height + 1);
-      for (let d = 0; d < height; d++) {
-        const shape = new DirectedShape(
-          Point(this.origin.x, this.origin.y, this.origin.z + d),
-          dx,
-          dy,
-          1 * this.depth,
-          dir,
-          color,
-          transformation,
-        );
-        this.shapes.push(shape);
-      }
-      this.updateOrigin(0, 0, -1);
-      return this;
+      this.updateOrigin(0, 0, -1 * (height - 1));
     }
 
-    for (let d = 0; d < height; d++) {
-      const shape = new DirectedShape(
-        Point(this.origin.x, this.origin.y, this.origin.z + d),
-        dx,
-        dy,
-        1 * this.depth,
-        dir,
-        color,
-        transformation,
-      );
-      this.shapes.push(shape);
+    this.blockGroups.push(
+      transformation(new Column(this.origin, height, dir)),
+    );
+
+    if (dir === DIR.DOWN) {
+      this.updateOrigin(0, 0, -1);
     }
 
     return this.updateOrigin(0, 0, height);
   };
 
-  addPath = (length, dir = DIR.X, color, transformation) => {
+  addTrack = (length, dir = DIR.X, transformation = identity) => {
     const dx = dir === DIR.X ? Math.abs(length) : 1;
     const dy = dir === DIR.Y ? Math.abs(length) : 1;
-    const height = 1 * this.depth;
 
     if (length < 0) {
       this.updateOrigin(
-        dir === DIR.X ? -1 * dx : 0,
-        dir === DIR.Y ? -1 * dy : 0,
+        dir === DIR.X ? -1 * (dx - 1) : 0,
+        dir === DIR.Y ? -1 * (dy - 1) : 0,
         0,
       );
 
-      for (let d = 0; d < Math.abs(length) + 1; d += 1) {
-        const shape = new DirectedShape(
-          Point(
-            this.origin.x + (dir === DIR.X ? d : 0),
-            this.origin.y + (dir === DIR.Y ? d : 0),
-            this.origin.z,
-          ),
-          1,
-          1,
-          height,
-          dir,
-          color,
-          transformation,
-        );
+      const transformedBlock = transformation(
+        new Track(this.origin, length, dir),
+      );
 
-        this.shapes.push(shape);
-      }
+      this.blockGroups.push(transformedBlock);
 
-      this.polarity = -1;
       this.direction = dir;
 
       return this;
     }
 
-    this.polarity = 1;
     this.direction = dir;
 
     this.updateOrigin(
       dir === DIR.X && this.direction !== DIR.X ? 1 : 0,
       dir === DIR.Y && this.direction !== DIR.Y ? 1 : 0,
     );
-    for (let d = 0; d < Math.abs(length); d += 1) {
-      const shape = new DirectedShape(
-        Point(
-          this.origin.x + (dir === DIR.X ? d : 0),
-          this.origin.y + (dir === DIR.Y ? d : 0),
-          this.origin.z,
-        ),
-        1,
-        1,
-        height,
-        dir,
-        color,
-        transformation,
-      );
 
-      this.shapes.push(shape);
-    }
+    const transformedBlock = transformation(
+      new Track(this.origin, length, dir),
+    );
+    this.blockGroups.push(transformedBlock);
 
     return this.updateOrigin(dir === DIR.X ? dx : 0, dir === DIR.Y ? dy : 0, 0);
   };
 
-  addStairs = (height, dir = DIR.X, incrementPerStair = 5, color = blue) => {
-    this.updateOrigin(
-      dir === DIR.X ? 1 : 0,
-      dir === DIR.Y ? 1 : 0,
-      1 * this.depth,
+  addStairs = (
+    height,
+    dir = DIR.X,
+    incrementPerStair = 5,
+    transformation = identity,
+  ) => {
+    this.updateOrigin(dir === DIR.X ? 1 : 0, dir === DIR.Y ? 1 : 0, 1);
+
+    this.blockGroups.push(
+      transformation(new Stairs(this.origin, height, dir, incrementPerStair)),
     );
 
-    [...Array(height).keys()].forEach((__, stairIndex) => {
-      [...Array(incrementPerStair).keys()].forEach((__, increment) => {
-        if (stairIndex !== 0 || increment !== 0) {
-          this.origin = Point(
-            this.origin.x + (dir === DIR.X ? 1 / incrementPerStair : 0),
-            this.origin.y + (dir === DIR.Y ? 1 / incrementPerStair : 0),
-            this.origin.z + 1 / incrementPerStair,
-          );
-        }
-
-        const shape = new DirectedShape(
-          this.origin,
-          dir === DIR.X ? 1 / incrementPerStair : 1,
-          dir === DIR.Y ? 1 / incrementPerStair : 1,
-          1 / incrementPerStair,
-          dir,
-          color,
-        );
-        this.shapes.push(shape);
-      });
-    });
-
     this.updateOrigin(
-      dir === DIR.X ? 1 / incrementPerStair : 0,
-      dir === DIR.Y ? 1 / incrementPerStair : 0,
-      -1 * this.depth + 1 / incrementPerStair,
+      dir === DIR.X ? height : 0,
+      dir === DIR.Y ? height : 0,
+      height - 1,
     );
 
     this.direction = dir;
@@ -273,9 +187,7 @@ class IsomerRoute {
   };
 
   split() {
-    return new IsomerRoute(this.canvas, this.origin)
-      .setRotation(this.rotation)
-      .setDepth(this.depth);
+    return new IsomerRoute(this.canvas, this.origin).setRotation(this.rotation);
   }
 
   rotate(rotation = Math.PI / 8) {
@@ -293,18 +205,13 @@ class IsomerRoute {
     return this;
   }
 
-  setDepth(depth = 1) {
-    this.depth = depth;
-    return this;
-  }
-
-  addShape = shape => {
-    this.shapes.push(shape);
+  addBlock = shape => {
+    this.blockGroups.push(shape);
     return this;
   };
 
-  addShapes = shapes => {
-    this.shapes = this.shapes.concat(shapes);
+  addBlocks = blocks => {
+    this.blockGroups = this.blockGroups.concat(blocks);
     return this;
   };
 
@@ -314,37 +221,37 @@ class IsomerRoute {
     return this;
   };
 
-  buildNodes = rotatedShapes => {
+  buildNodes = rotatedBlocks => {
     const nodes = new Map();
-    rotatedShapes.forEach(shape => {
-      nodes.set(shape.getId(), shape);
+    rotatedBlocks.forEach(block => {
+      nodes.set(block.getId(), block);
     });
 
     this.topology = new TopologicalSort(nodes);
     return this;
   };
 
-  addEdge = (shapeA, shapeB) => {
-    const nodeA = this.topology.nodes.get(shapeA.getId());
-    if (!nodeA.children.has(shapeB.getId())) {
-      this.topology.addEdge(shapeA.getId(), shapeB.getId());
+  addEdge = (blockA, blockB) => {
+    const nodeA = this.topology.nodes.get(blockA.getId());
+    if (!nodeA.children.has(blockB.getId())) {
+      this.topology.addEdge(blockA.getId(), blockB.getId());
     }
     return this;
   };
 
-  buildEdges = rotatedShapes => {
-    rotatedShapes.forEach((shapeA, index) => {
-      rotatedShapes.slice(index + 1).forEach(shapeB => {
-        const boxA = getBoundingBoxFromShape(shapeA);
-        const boxB = getBoundingBoxFromShape(shapeB);
+  buildEdges = rotatedBlocks => {
+    rotatedBlocks.forEach((blockA, index) => {
+      rotatedBlocks.slice(index + 1).forEach(blockB => {
+        const boxA = getBoundingBoxFromBlock(blockA);
+        const boxB = getBoundingBoxFromBlock(blockB);
         if (
-          shapeA.getId() !== shapeB.getId() &&
+          blockA.getId() !== blockB.getId() &&
           doBoundingBoxesOverlap(boxA, boxB)
         ) {
           if (isBoxInFront(boxA, boxB)) {
-            this.addEdge(shapeA, shapeB);
+            this.addEdge(blockA, blockB);
           } else {
-            this.addEdge(shapeB, shapeA);
+            this.addEdge(blockB, blockA);
           }
         }
       });
@@ -352,13 +259,13 @@ class IsomerRoute {
     return this;
   };
 
-  delayDraw = (shape, delay = 0) => {
+  delayDraw = (block, delay = 0) => {
     if (delay) {
       setTimeout(() => {
-        this.iso.add(shape.shape, shape.color || blue);
+        this.iso.add(block.shape, block.color || this.color);
       }, delay);
     } else {
-      this.iso.add(shape.shape, shape.color || blue);
+      this.iso.add(block.shape, block.color || this.color);
     }
     return this;
   };
@@ -366,20 +273,26 @@ class IsomerRoute {
   draw = () => {
     this.topology = null;
     this.nodes = new Map();
-    const rotatedShapes = this.shapes.map(shape =>
-      shape
-        .transformation(shape)
-        .rotateZ(Point(this.gridSize / 2, this.gridSize / 2, 0), this.rotation),
+    const blocks = this.blockGroups.reduce(
+      (acc, connectedBlock) => [...acc, ...connectedBlock.blocks],
+      [],
     );
 
-    this.buildNodes(rotatedShapes);
-    this.buildEdges(rotatedShapes);
+    const rotatedBlocks = blocks.map(block => {
+      return block.rotateZ(
+        Point(this.gridSize / 2, this.gridSize / 2, 0),
+        this.rotation,
+      );
+    });
+
+    this.buildNodes(rotatedBlocks);
+    this.buildEdges(rotatedBlocks);
     let sortedTopology = null;
     try {
       sortedTopology = this.topology.sort();
-      [...sortedTopology.keys()].reverse().forEach((shapeId, index) => {
-        const shape = sortedTopology.get(shapeId).node;
-        this.delayDraw(shape, index * this.delay);
+      [...sortedTopology.keys()].reverse().forEach((blockId, index) => {
+        const block = sortedTopology.get(blockId).node;
+        this.delayDraw(block, index * this.delay);
       });
     } catch (e) {
       console.log(e, console.log(this.topology));
@@ -389,7 +302,7 @@ class IsomerRoute {
   };
 
   flush = () => {
-    this.shapes = [];
+    this.blockGroups = [];
     return this;
   };
 }
