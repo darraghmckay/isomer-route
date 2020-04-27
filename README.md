@@ -1,6 +1,6 @@
 # isomer-route
 
-An abstraction of the popular isometric graphics library [isomer](https://github.com/jdan/isomer) which allows you to easily build _routes_ using `Track`s, `Column`s and `Stairs`, taking care of the hard things such as positioning, complext transformations and drawing order. 
+An abstraction of the popular isometric graphics library [isomer](https://github.com/jdan/isomer) which allows you to easily build _routes_ using `Track`s, `Column`s and `Stairs`, taking care of the hard things such as positioning, complex transformations and drawing order. 
 
  
 ## Installation
