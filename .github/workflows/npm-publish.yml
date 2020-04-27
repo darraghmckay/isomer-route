@@ -2,21 +2,10 @@ name: npm-publish
 on: push
 
 jobs:
-  build: 
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
-        with:
-          node-version: 12
-          registry-url: https://registry.npmjs.org/
-      - run: yarn install
-      - run: yarn build
   publish:
     name: Publish to NPM & GitHub Package Registry
     runs-on: ubuntu-latest
     if: contains(github.ref, 'master') # Publish it only if the push comes from the master branch
-    needs: build # We need to wait for the build to be committed before publishing
 
     steps:
       - name: Checkout repository
@@ -40,7 +29,10 @@ jobs:
 
       - name: Install dependencies
         if: steps.check.outputs.changed == 'true'
-        run: yarn install --only=prod
+        run: yarn install
+
+      - name: Build package
+        if: steps.check.outputs.changed == 'true'
         run: yarn build
 
       - name: Publish package to NPM
