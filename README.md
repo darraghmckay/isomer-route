@@ -1,7 +1,11 @@
+![isomer-route-portfolio-cover](https://user-images.githubusercontent.com/11474806/80754705-63a58a00-8b27-11ea-8088-ac1cf04ffbba.png)
+
+
+
 # isomer-route
+isomer-route allows you to draw complex isometric shapes and illusions with ease on the HTML5 canvas, extending on the great work of [isomer](https://github.com/jdan/isomer). Inspired by isometric illusions such as the Penrose triangleand the beautiful gameMonument Valley
 
-An abstraction of the popular isometric graphics library [isomer](https://github.com/jdan/isomer) which allows you to easily build _routes_ using `Track`s, `Column`s and `Stairs`, taking care of the hard things such as positioning, complex transformations and drawing order. 
-
+Easily build _routes_ using `Track`s, `Column`s and `Stairs`, taking care of the hard things such as positioning, complex transformations and drawing order. 
  
 ## Installation
 
@@ -35,10 +39,10 @@ new IsomerRoute(canv, Point(0, 0, 0))
 ```
 
 ## Documentation
-Coming soon
+Full documentation and reference is available on the [project page on my website](https://darraghmckay.com/projects/isomer-route)
 
 ## Examples
-For now, checkout the simple examples I made on my [blog](https://darraghmckay.com/blog/isometric-illusions)
+For more fun examples I made check out my [blog post](https://darraghmckay.com/blog/isometric-illusions)
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
