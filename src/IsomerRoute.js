@@ -12,6 +12,7 @@ import {
 import Track from './Track';
 import Column from './Column';
 import Stairs from './Stairs';
+import Block from './Block';
 
 const identity = block => block;
 
@@ -23,6 +24,7 @@ class IsomerRoute {
     this.origin = origin;
     this.gridSize = 16;
     this.blockGroups = [];
+    this.transformedBlocks = [];
     this.direction = null;
     this.color = color;
     this.rotation = 0;
@@ -33,39 +35,24 @@ class IsomerRoute {
   }
 
   getEquivalentPoint = point => {
+    const pointBlock = new Block(point, 1, 1, 1).rotateZ(
+      Point(this.gridSize / 2, this.gridSize / 2, 0),
+      this.rotation,
+    );
+    const blockOrigin = pointBlock.getShapeOrigin();
     const equivalentPoints = [];
-    for (let i = 0; i < this.blockGroups.length; i++) {
-      const shape = this.blockGroups[i];
-      const { origin, dz, direction } = shape;
-      if (direction === DIR.X) {
-        const p = Point(origin.x + 1, origin.y, origin.z + dz);
-        if (isEquivalent(point, p, this.rotationQuadrant)) {
-          equivalentPoints.push(p);
-        }
-      }
+    for (let i = 0; i < this.transformedBlocks.length; i++) {
+      const shape = this.transformedBlocks[i];
+      const origin = shape.getShapeOrigin();
 
-      if (direction === DIR.Y) {
-        const p = Point(origin.x, origin.y + 1, origin.z + dz);
-        if (isEquivalent(point, p, this.rotationQuadrant)) {
-          equivalentPoints.push(p);
-        }
-      }
-
-      if (direction === DIR.DOWN) {
-        const p = Point(origin.x, origin.y, origin.z + dz);
-        if (isEquivalent(point, p, this.rotationQuadrant)) {
-          equivalentPoints.push(p);
-        }
-      }
-
-      if (direction === DIR.UP) {
-        const p = Point(origin.x, origin.y, origin.z + dz);
-        if (
-          isEquivalent(point, p, this.rotationQuadrant) &&
-          !isEquivalent(point, Point(p.x, p.y, p.z + 1))
-        ) {
-          equivalentPoints.push(p);
-        }
+      const p = Point(origin.x, origin.y, origin.z + 1);
+      if (isEquivalent(blockOrigin, p, this.rotationQuadrant)) {
+        const originalOrigin = Point(
+          shape.origin.x,
+          shape.origin.y,
+          shape.origin.z + 1,
+        );
+        equivalentPoints.push(originalOrigin);
       }
     }
 
@@ -116,9 +103,7 @@ class IsomerRoute {
       this.updateOrigin(0, 0, -1 * (height - 1));
     }
 
-    this.blockGroups.push(
-      transformation(new Column(this.origin, height, dir)),
-    );
+    this.blockGroups.push(transformation(new Column(this.origin, height, dir)));
 
     if (dir === DIR.DOWN) {
       this.updateOrigin(0, 0, -1);
@@ -221,9 +206,9 @@ class IsomerRoute {
     return this;
   };
 
-  buildNodes = rotatedBlocks => {
+  buildNodes = transformedBlocks => {
     const nodes = new Map();
-    rotatedBlocks.forEach(block => {
+    transformedBlocks.forEach(block => {
       nodes.set(block.getId(), block);
     });
 
@@ -239,9 +224,9 @@ class IsomerRoute {
     return this;
   };
 
-  buildEdges = rotatedBlocks => {
-    rotatedBlocks.forEach((blockA, index) => {
-      rotatedBlocks.slice(index + 1).forEach(blockB => {
+  buildEdges = transformedBlocks => {
+    transformedBlocks.forEach((blockA, index) => {
+      transformedBlocks.slice(index + 1).forEach(blockB => {
         const boxA = getBoundingBoxFromBlock(blockA);
         const boxB = getBoundingBoxFromBlock(blockB);
         if (
@@ -278,15 +263,15 @@ class IsomerRoute {
       [],
     );
 
-    const rotatedBlocks = blocks.map(block => {
+    this.transformedBlocks = blocks.map(block => {
       return block.rotateZ(
         Point(this.gridSize / 2, this.gridSize / 2, 0),
         this.rotation,
       );
     });
 
-    this.buildNodes(rotatedBlocks);
-    this.buildEdges(rotatedBlocks);
+    this.buildNodes(this.transformedBlocks);
+    this.buildEdges(this.transformedBlocks);
     let sortedTopology = null;
     try {
       sortedTopology = this.topology.sort();

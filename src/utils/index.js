@@ -5,17 +5,8 @@ export const isEquivalent = (p1, p2, rotationQuadrant = 0) => {
   const xDif = Math.round(p1.x) - Math.round(p2.x);
   const yDif = Math.round(p1.y) - Math.round(p2.y);
   const zDif = Math.round(p1.z) - Math.round(p2.z);
-  switch (rotationQuadrant) {
-    case 0.25:
-      return xDif === zDif && yDif === -zDif;
-    case 0.5:
-      return xDif === zDif && yDif === zDif;
-    case 0.75:
-      return xDif === -zDif && yDif === zDif;
-    case 0:
-    default:
-      return xDif === -zDif && yDif === -zDif;
-  }
+
+  return xDif === -zDif && yDif === -zDif;
 };
 
 export const drawGrid = (
@@ -24,14 +15,6 @@ export const drawGrid = (
   gridSize = 16,
   drawNegative = false,
 ) => {
-  // iso.add(
-  //   Shape.Prism(Point(0, 0, -gridSize), gridSize, gridSize, gridSize).rotateZ(
-  //     Point(gridSize / 2, gridSize / 2, 0),
-  //     rotation,
-  //   ),
-  //   blue,
-  // );
-
   for (let x = drawNegative ? -gridSize : 0; x <= gridSize; x += 1) {
     iso.add(
       new Path([

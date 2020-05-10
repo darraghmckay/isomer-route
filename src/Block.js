@@ -28,6 +28,39 @@ class Block {
     return `${this.origin.x},${this.origin.y},${this.origin.z}--${this.dx}x${this.dy}x${this.dz}`;
   }
 
+  getShapeOrigin() {
+    const numPaths = this.shape.paths.length;
+    return Point(
+      this.shape.paths.reduce(
+        (pathSum, path) =>
+          pathSum +
+          path.points.reduce((sum, point) => sum + point.x, 0) /
+            path.points.length,
+        0,
+      ) /
+        numPaths -
+        this.dx / 2,
+      this.shape.paths.reduce(
+        (pathSum, path) =>
+          pathSum +
+          path.points.reduce((sum, point) => sum + point.y, 0) /
+            path.points.length,
+        0,
+      ) /
+        numPaths -
+        this.dy / 2,
+      this.shape.paths.reduce(
+        (pathSum, path) =>
+          pathSum +
+          path.points.reduce((sum, point) => sum + point.z, 0) /
+            path.points.length,
+        0,
+      ) /
+        numPaths -
+        this.dz / 2,
+    );
+  }
+
   /**
    * Rotates a given block along the X axis around a given origin
    *
